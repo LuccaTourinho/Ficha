@@ -1,26 +1,58 @@
+/* global.css */
 @import "tailwindcss";
 
+/* Light Theme */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Cores base */
+  --background: 57 68% 84%;
+  --foreground: 56 89% 4%;
+  
+  /* Cores semânticas */
+  --primary: 55 90% 52%;
+  --secondary: 122 90% 73%;
+  --accent: 148 90% 61%;
+  --muted: 57 68% 84%; /* Mesmo do background */
+  
+  /* Estados interativos */
+  --primary-hover: 55 90% 45%;
+  --secondary-hover: 122 90% 65%;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* Dark Theme */
+.dark {
+  --background: 222 43% 10%;
+  --foreground: 225 58% 88%;
+  
+  --primary: 222 32% 74%;
+  --secondary: 274 33% 32%;
+  --accent: 287 33% 51%;
+  --muted: 222 43% 15%; /* Mais claro que o background */
+  
+  --primary-hover: 222 32% 65%;
+  --secondary-hover: 274 33% 25%;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* Aplicação das variáveis */
+@layer base {
+  body {
+    @apply bg-[hsl(var(--background))] text-[hsl(var(--foreground))];
   }
-}
+  
+  /* Backgrounds */
+  .bg-primary { @apply bg-[hsl(var(--primary))]; }
+  .bg-secondary { @apply bg-[hsl(var(--secondary))]; }
+  .bg-accent { @apply bg-[hsl(var(--accent))]; }
+  .bg-muted { @apply bg-[hsl(var(--muted))]; }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  /* Texts */
+  .text-primary { @apply text-[hsl(var(--primary))]; }
+  .text-secondary { @apply text-[hsl(var(--secondary))]; }
+  .text-accent { @apply text-[hsl(var(--accent))]; }
+  .text-muted { @apply text-[hsl(var(--muted))]; }
+
+  /* Borders */
+  .border-primary { @apply border-[hsl(var(--primary))]; }
+  .border-secondary { @apply border-[hsl(var(--secondary))]; }
+  .border-accent { @apply border-[hsl(var(--accent))]; }
+  .border-muted { @apply border-[hsl(var(--muted))]; }
 }
