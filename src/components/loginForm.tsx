@@ -8,6 +8,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createdUserIdCookie } from "@/lib/cookie";
+import { IoEyeOutline, IoEyeOffOutline } from "react-icons/io5";
 
 const loginFormSchema = z.object({
   email: z.string().trim().email({ message: 'Email inválido' }),
@@ -35,6 +36,7 @@ function validateField <K extends keyof LoginFormType> (field: K, value: LoginFo
 const LoginForm = () => {
   const [alert, setAlert] = useState<string|null>(null);
   const [fieldErros, setFieldErrors] = useState<Record<string, string|null>>({});
+  const [showPassword, setShowPassword] = useState(false);
 
   const {
     register,
@@ -117,7 +119,6 @@ const LoginForm = () => {
         ? 'Email ou senha incorretos' 
         : 'Erro ao fazer login'
       );
-      console.error('Erro no login:', error);
     }finally{
       reset();
     }
@@ -161,12 +162,22 @@ const LoginForm = () => {
 
         {/* Senha */}
         <div className="flex flex-col gap-1 w-full">
-          <Input
-            type="password"
-            placeholder="Senha" 
-            {...register('senha')}
-            onChange={(e) => handleValidation('senha', e.target.value)}
-          />
+          <div className="relative w-full">
+            <Input
+              type={showPassword ? 'text' : 'password'}
+              placeholder="Senha" 
+              {...register('senha')}
+              onChange={(e) => handleValidation('senha', e.target.value)}
+              className="w-full"
+            />
+            <button
+              type="button"
+              className="absolute right-2 top-1/2 -translate-y-1/2 hover:cursor-pointer"
+              onClick={() => setShowPassword(!showPassword)}
+            >
+              {showPassword ? <IoEyeOffOutline size={18} className="text-muted"/> : <IoEyeOutline size={18} />}
+            </button>
+          </div>
           {fieldErros.senha && (
             <p className="text-xs bg-destructive text-destructive-foreground px-2">
               {formatErrorMessages(fieldErros.senha)}

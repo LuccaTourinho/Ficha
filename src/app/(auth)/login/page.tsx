@@ -15,7 +15,7 @@ const page = () => {
         <div
             className={`
                 w-full 
-                h-[300px] sm:h-[40px] md:h-[500px] lg:h-[600px]
+                h-[300px] sm:h-[400px] md:h-[500px] lg:h-[600px]
                 bg-primary text-primary-foreground 
                 rounded-lg p-2 lg:p-6 2xl:p-8
                 flex flex-col items-center justify-center gap-0.5 md:gap-2 lg:gap-4

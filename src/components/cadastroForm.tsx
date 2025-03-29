@@ -8,6 +8,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import {zodResolver} from "@hookform/resolvers/zod";
 import { createdUserIdCookie } from "@/lib/cookie";
+import { IoEyeOutline, IoEyeOffOutline } from "react-icons/io5";
 
 const cadastroFormSchema = z.object({
   email: z.string().trim().email({ message: 'Email inválido' }),
@@ -35,6 +36,7 @@ function validateField <K extends keyof CadastroFormType> (field: K, value: Cada
 const CadastroForm = () => {
   const [alert, setAlert] = useState<string|null>(null);
   const [fieldErros, setFieldErrors] = useState<Record<string, string|null>>({});
+  const [showPassword, setShowPassword] = useState(false);
 
   const {
     register,
@@ -111,8 +113,10 @@ const CadastroForm = () => {
       }
 
       // 4. Criptografa o ID recebido
+      // Esse idHase não será usado mesmo, pois o ID criptografado será armazenado no cookie
+      // Essa function é de cryptografia é usada para outros locais por isso deixei aqui
       const { encrypted: idCriptografado, hash: idHash } = await encryptString(result.id.toString());
-
+      console.log(idHash);
       // 5. Armazena o ID criptografado no cookie (usando a função centralizada)
       createdUserIdCookie(idCriptografado); // Padrão 7 dias
       
@@ -122,20 +126,19 @@ const CadastroForm = () => {
   
     } catch (error) {
       // 7. Tratamento de erros específicos
-      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-      
-      console.error('❌ Erro no cadastro:', errorMessage);
+      let errorMessage = 'Erro ao cadastrar';
+    
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        
+        // Log detalhado para debug
+        console.error('Detalhes do erro:', {
+          message: error.message,
+          // Adicione outros detalhes relevantes se necessário
+        });
+      }
 
-      setAlert(errorMessage.includes('Email já cadastrado') 
-        ? 'Este email já está em uso' 
-        : 'Erro ao cadastrar'
-      );
-
-      setAlert(errorMessage.includes("Senha já está em uso")
-        ? 'Esta senha já está em uso' 
-        : 'Erro ao cadastrar'
-      );
-      
+      setAlert(errorMessage);
     } finally {
       reset();
     }
@@ -179,12 +182,22 @@ const CadastroForm = () => {
 
         {/* Senha */}
         <div className="flex flex-col gap-1 w-full">
-          <Input
-            type="password"
-            placeholder="Senha" 
-            {...register('senha')}
-            onChange={(e) => handleValidation('senha', e.target.value)}
-          />
+          <div className="relative w-full">
+            <Input
+              type={showPassword ? 'text' : 'password'}
+              placeholder="Senha" 
+              {...register('senha')}
+              onChange={(e) => handleValidation('senha', e.target.value)}
+              className="w-full"
+            />
+            <button
+              type="button"
+              className="absolute right-2 top-1/2 -translate-y-1/2 hover:cursor-pointer"
+              onClick={() => setShowPassword(!showPassword)}
+            >
+              {showPassword ? <IoEyeOffOutline size={18} className="text-muted"/> : <IoEyeOutline size={18} />}
+            </button>
+          </div>
           {fieldErros.senha && (
             <p className="text-xs bg-destructive text-destructive-foreground px-2">
               {formatErrorMessages(fieldErros.senha)}
