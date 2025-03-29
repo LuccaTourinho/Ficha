@@ -21,7 +21,7 @@ const loginMessage = () => {
         </h1>
         <p 
             className={`
-                text-xs md:text-lg
+                text-xs 
             `}
         >
             Bem vindo a ficha do Elder Scrolls de mesa. 

@@ -1,60 +1,214 @@
 'use client';
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
-import { encryptString, decryptString } from "@/lib/crypto";
+import { encryptString } from "@/lib/crypto";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import {zodResolver} from "@hookform/resolvers/zod";
+import { createdUserIdCookie } from "@/lib/cookie";
+
+const cadastroFormSchema = z.object({
+  email: z.string().trim().email({ message: 'Email inválido' }),
+  senha: z 
+            .string()
+            .trim()
+            .min(8, { message: 'Senha deve ter pelo menos 8 caracteres' })
+            .regex(/[A-Z]/, { message: 'Senha deve conter pelo menos uma letra maiúscula' })
+            .regex(/[a-z]/, { message: 'Senha deve conter pelo menos uma letra minúscula' })
+            .regex(/\d/, { message: 'Senha deve conter pelo menos um número' })
+            .regex(/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/, { message: 'Senha deve conter pelo menos um caractere especial' })
+            .refine(
+              (value) => !/\s/.test(value),
+              { message: 'Senha não pode conter espaços em branco' }
+            ),
+});
+
+type CadastroFormType = z.infer<typeof cadastroFormSchema>;
+
+function validateField <K extends keyof CadastroFormType> (field: K, value: CadastroFormType[K]) {
+  const singleFieldSchema = z.object({ [field]: cadastroFormSchema.shape[field] });
+  return singleFieldSchema.safeParse({ [field]: value });
+}
 
 const CadastroForm = () => {
-  // useEffect(() => {
-  //   const testEncryptionDecryption = async () => {
-  //     console.log('Iniciando teste completo de criptografia/descriptografia...');
-      
-  //     try {
-  //       // 1. Texto original
-  //       const originalText = "MinhaSenha123!";
-  //       console.log('✅ Texto original:', originalText);
+  const [alert, setAlert] = useState<string|null>(null);
+  const [fieldErros, setFieldErrors] = useState<Record<string, string|null>>({});
 
-  //       // 2. Criptografa
-  //       const encrypted = await encryptString(originalText);
-  //       console.log('🔐 Texto criptografado:', encrypted);
-  //       console.log('📏 Tamanho do criptografado:', encrypted.length, 'caracteres');
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    formState: {
+      isSubmitting,
+    },
+    reset
+  } = useForm<CadastroFormType>({
+    resolver: zodResolver(cadastroFormSchema),
+  });
 
-  //       // 3. Descriptografa
-  //       const decrypted = await decryptString(encrypted);
-  //       console.log('🔓 Texto descriptografado:', decrypted);
-
-  //       // 4. Verificação de integridade
-  //       if (originalText === decrypted) {
-  //         console.log('✔️ Teste concluído com sucesso! Os textos coincidem.');
-  //       } else {
-  //         console.warn('⚠️ Atenção: O texto descriptografado não coincide com o original!');
-  //         console.log('Comparação:');
-  //         console.log('Original:', originalText);
-  //         console.log('Descriptografado:', decrypted);
-  //       }
+  const handleValidation = (field: keyof CadastroFormType, value: string) => {
+    try{
+      setValue(field, value); // Atualiza o campo com o novo valor
+      const validation = validateField(field, value); 
+      if(validation.success){
+        setFieldErrors((prevErros) => ({
+          ...prevErros,
+          [field]: null,
+        }));
+      }else{
+        const errorMessages = validation.error.errors.map((err) => err.message).join(" \n");
+        setFieldErrors((prevErros) => ({
+          ...prevErros,
+          [field]: errorMessages || 'Erro desconhecido',
+        }));
+      }
+    }catch(error){
+      if(error instanceof z.ZodError){
+        const errorMessages = error.errors.map((err) => err.message).join(" \n");
         
-  //     } catch (error) {
-  //       console.error('❌ Falha no processo:', error instanceof Error ? error.message : error);
-  //     }
-  //   };
+        setFieldErrors((prevErros) => ({
+          ...prevErros,
+          [field]: errorMessages || 'Erro desconhecido',
+        }));
+      }else{
+        console.error("Erro desconhecido: ", error);
+      }
+    }
+  };
 
-  //   testEncryptionDecryption();
-  // }, []);
+  const formatErrorMessages = (errors: string) => {
+    return errors.split('\n').map((line, index) => (
+      <span key={index}>{line}<br /></span>
+    ));
+  };
+
+  const onSubmit = async (data: CadastroFormType) => {
+    try {
+      // 1. Criptografa a senha e obtém o hash
+      const { encrypted: senhaCriptografada, hash: senhaHash } = await encryptString(data.senha);
+  
+      // 2. Envia para a API de cadastro
+      const response = await fetch('/api/db/usuario', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: data.email,
+          senha_criptografada: senhaCriptografada,
+          senha_hash: senhaHash
+        })
+      });
+      
+      // console.log('Status:', response.status, 'Body:', await response.clone().text()); 
+
+      const result = await response.json();
+      
+
+      // 3. Trata erros da API
+      if (!response.ok) {
+        throw new Error(result.error || 'Erro no cadastro');
+      }
+
+      // 4. Criptografa o ID recebido
+      const { encrypted: idCriptografado, hash: idHash } = await encryptString(result.id.toString());
+
+      // 5. Armazena o ID criptografado no cookie (usando a função centralizada)
+      createdUserIdCookie(idCriptografado); // Padrão 7 dias
+      
+      // 6. Feedback ao usuário
+      setAlert('Cadastro realizado com sucesso!');
+      console.log('ID do novo usuário (criptografado):', idCriptografado);
+  
+    } catch (error) {
+      // 7. Tratamento de erros específicos
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      
+      console.error('❌ Erro no cadastro:', errorMessage);
+
+      setAlert(errorMessage.includes('Email já cadastrado') 
+        ? 'Este email já está em uso' 
+        : 'Erro ao cadastrar'
+      );
+
+      setAlert(errorMessage.includes("Senha já está em uso")
+        ? 'Esta senha já está em uso' 
+        : 'Erro ao cadastrar'
+      );
+      
+    } finally {
+      reset();
+    }
+  };
+
+  useEffect(() => {
+    ['email', 'senha'].forEach((fieldChoosen) => {
+      handleValidation(fieldChoosen as keyof CadastroFormType, '');
+    });
+  }, []);
+
+  useEffect(() => {
+    if(alert){
+      const timer = setTimeout(() => {
+        setAlert(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [alert]);
 
   return (
-    <div className="flex flex-col gap-2 w-full items-center">
-      <Input
-        type="email"
-        placeholder="Email" 
-      />
-      <Input
-        type="password"
-        placeholder="Senha" 
-      />
-      <Button className="w-[50%]">
-        Entrar
-      </Button>
+    <div className="flex flex-col gap-2 w-full h-full items-center">
+      <form
+        onSubmit={handleSubmit(onSubmit)}
+        className="flex flex-col gap-1 w-full h-full items-center justify-around"
+      >
+        {/* Email */}
+        <div className="flex flex-col gap-1 w-full">
+          <Input
+            type="email"
+            placeholder="Email" 
+            {...register('email')}
+            onChange={(e) => handleValidation('email', e.target.value)}
+          />
+          {fieldErros.email && (
+            <p className="text-xs bg-destructive text-destructive-foreground px-2">
+              {formatErrorMessages(fieldErros.email)}
+            </p>
+          )}
+        </div>
+
+        {/* Senha */}
+        <div className="flex flex-col gap-1 w-full">
+          <Input
+            type="password"
+            placeholder="Senha" 
+            {...register('senha')}
+            onChange={(e) => handleValidation('senha', e.target.value)}
+          />
+          {fieldErros.senha && (
+            <p className="text-xs bg-destructive text-destructive-foreground px-2">
+              {formatErrorMessages(fieldErros.senha)}
+            </p>
+          )}
+        </div>
+
+        {/* Button */}
+        <div className="flex flex-col gap-1 items-center w-full">
+          <Button
+            type="submit"
+            className={"max-w-40"}
+            disabled={isSubmitting}
+            size={'sm'}
+          >
+            {isSubmitting ? 'Cadastrando...' : 'Cadastrar'}
+          </Button>
+          {alert && (
+            <p className="text-xs bg-destructive text-destructive-foreground px-2">
+              {alert}
+            </p>
+          )}
+        </div>
+      </form>
     </div>
   )
 }
